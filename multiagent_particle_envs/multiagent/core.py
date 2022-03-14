@@ -170,8 +170,14 @@ class Agent(Entity):
         """
         perform an action and update the state
         :param action: tuple (vx, vy)
+
+        (1) update px, py
+        (2) update vx, vy
+        (3) update done
+        (4) update theta
         :return:
         """
+        self.vx, self.vy = action[0], action[1]
         action = ActionXY(action[0], action[1])
         pos = self.compute_position(action, self.time_step)
         self.px, self.py = pos

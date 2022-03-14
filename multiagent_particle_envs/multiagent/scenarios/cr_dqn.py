@@ -23,7 +23,7 @@ class Scenario(BaseScenario):
         # set size of the world
         world.set_world(-160, 160, -160, 160)
         # set any world properties first
-        self.num_agents = 8
+        self.num_agents = 30
         self.num_landmarks = self.num_agents
         world.collaborative = True
         # make initial conditions
@@ -60,8 +60,8 @@ class Scenario(BaseScenario):
 
     def generate_random_agent_attribute(self, world, agent_id):
         # 固定场景
-        np.random.seed(self.episode)
-        self.episode += 1
+        # np.random.seed(self.episode)
+        # self.episode += 1
         square_width = world.boundary[1]
         if np.random.random() > 0.5:
             sign = -1
@@ -143,7 +143,7 @@ class Scenario(BaseScenario):
 
     def reward(self, world, collision_mat, reach_goals, exit_boundary, dist_to_goal):
         reward = []
-        c_v = 0
+        c_v = []
         for i, agent in enumerate(world.agents):
             if reach_goals[i]:
                 reward.append(0)
@@ -155,9 +155,8 @@ class Scenario(BaseScenario):
                 collision_value_row = collision_mat[i]
                 angle = agent.angle_intent_current_v()
                 r1 = sum(collision_value_row == 1) * self.collision_penalty
-                # r2 = dist_to_goal[i] * self.dist_to_goal_penalty
-                r3 = sum(np.logical_and(collision_value_row > 0, collision_value_row <= 0.5)) * self.collision_level1
-                r4 = r2 = sum(np.logical_and(collision_value_row > 0.5, collision_value_row < 1)) * self.collision_level2
+                # r3 = sum(np.logical_and(collision_value_row > 0, collision_value_row <= 0.5)) * self.collision_level1
+                # r4 = r2 = sum(np.logical_and(collision_value_row > 0.5, collision_value_row < 1)) * self.collision_level2
                 r5 = (math.cos(angle) - 1) * self.angle_dev
                 r = r1 + r5
                 c1 = np.logical_and(collision_value_row > 0, collision_value_row <= 0.5)
@@ -167,9 +166,9 @@ class Scenario(BaseScenario):
                 v1 = sum(np.take(collision_value_row, c1)) * -self.collision_level1
                 v2 = sum(np.take(collision_value_row, c2)) * -self.collision_level2
                 v3 = sum(collision_value_row == 1) * 2.0
-                c_v = v1 + v2 + v3
+                c_v.append(v1 + v2 + v3)
                 reward.append(r)
-        return reward, c_v
+        return reward, sum(c_v) / 2
 
     # def reward(self, agent, world):
     #     # Agents are rewarded based on minimum agent distance to each landmark, penalized for collisions

@@ -9,7 +9,8 @@ import torch.nn.functional as F
 USE_CUDA = torch.cuda.is_available()
 Variable = lambda *args, **kwargs: autograd.Variable(*args, **kwargs).cuda() if USE_CUDA else autograd.Variable(*args, **kwargs)
 
-		
+
+# 观测编码模块是通过一个全连接神经网络MLP编码为hi
 class Encoder(nn.Module):
 	def __init__(self, din=32, hidden_dim=128):
 		super(Encoder, self).__init__()
@@ -19,6 +20,7 @@ class Encoder(nn.Module):
 		embedding = F.relu(self.fc(x))
 		return embedding
 
+# 卷积层模块采用的是attention机制，需要加深卷积层，扩大智能体感受野
 class AttModel(nn.Module):
 	def __init__(self, n_node, din, hidden_dim, dout):
 		super(AttModel, self).__init__()
@@ -39,6 +41,7 @@ class AttModel(nn.Module):
 		#out = F.relu(self.fcout(out))
 		return out, h
 
+# Q网络模块
 class Q_Net(nn.Module):
 	def __init__(self, hidden_dim, dout):
 		super(Q_Net, self).__init__()
@@ -48,8 +51,11 @@ class Q_Net(nn.Module):
 		q = self.fc(x)
 		return q
 
+# Actor-Critic网络模块
+
+
 class DGN(nn.Module):
-	def __init__(self,n_agent,num_inputs,hidden_dim,num_actions):
+	def __init__(self, n_agent, num_inputs, hidden_dim, num_actions):
 		super(DGN, self).__init__()
 		
 		self.encoder = Encoder(num_inputs,hidden_dim)

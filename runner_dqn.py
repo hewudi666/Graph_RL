@@ -1,17 +1,14 @@
+from dgn.buffer import ReplayBuffer_dqn
 import torch
-import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-from dgn.dgn_r.model import DGN
-from dgn.dgn_r.buffer import ReplayBuffer
+from dgn.DQN import DQN
 import os
 import matplotlib.pyplot as plt
 import numpy as np
 import logging
 import time
 
-
-class Runner_DGN1:
+class Runner_DQN:
     def __init__(self, args, env):
         self.args = args
         device = torch.device("cuda:0" if torch.cuda.is_available() and args.gpu else "cpu")
@@ -24,16 +21,16 @@ class Runner_DGN1:
         self.max_step = args.max_episode_len
         self.agents = self.env.agents
         self.agent_num = self.env.agent_num
+        self.buffer = ReplayBuffer_dqn(args.buffer_size)
         self.n_action = 5
-        self.hidden_dim = 64
-        self.buffer = ReplayBuffer(args.buffer_size, 9, self.n_action, self.agent_num)
+        self.hidden_dim = 128
         self.lr = 1e-4
         self.batch_size = args.batch_size
-        self.train_epoch = 25
+        self.train_epoch = 5
         self.gamma = args.gamma
         self.observation_space = self.env.observation_space
-        self.model = DGN(self.agent_num, self.observation_space, self.hidden_dim, self.n_action)
-        self.model_tar = DGN(self.agent_num, self.observation_space, self.hidden_dim, self.n_action)
+        self.model = DQN(self.agent_num, self.observation_space, self.hidden_dim, self.n_action)
+        self.model_tar = DQN(self.agent_num, self.observation_space, self.hidden_dim, self.n_action)
         self.model = self.model.cuda()
         self.model_tar = self.model_tar.cuda()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.lr)
@@ -45,17 +42,17 @@ class Runner_DGN1:
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
             print("successfully load model: {}".format(self.model_name))
 
+
     def run(self):
-        KL = nn.KLDivLoss()
-        lamb = 0.1
-        tau = 0.98
+        Obs = np.ones((self.batch_size, self.agent_num, self.observation_space))
+        Next_Obs = np.ones((self.batch_size, self.agent_num, self.observation_space))
+
         reward_total = []
         conflict_total = []
         collide_wall_total = []
         success_total = []
         nmac_total = []
-        start_episode = 40
-        # start_episode = 1000
+        start_episode = 50
         start = time.time()
         episode = -1
         rl_model_dir = self.save_path + self.model_name
@@ -65,7 +62,8 @@ class Runner_DGN1:
 
             episode += 1
             step = 0
-            obs, adj = self.env.reset()
+            obs = self.env.reset()
+
             print("current episode {}".format(episode))
             while step < self.max_step:
                 if not self.env.simulation_done:
@@ -73,9 +71,7 @@ class Runner_DGN1:
                     step += 1
                     action = []
                     obs1 = np.expand_dims(obs, 0)  # shape （1, 6, 9(observation_space)）
-                    adj1 = np.expand_dims(adj, 0)
-                    q, a_w = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())  # shape (100, 3)
-                    q = q[0]
+                    q = self.model(torch.Tensor(obs1).cuda())[0]  # shape (agent_num, action_num)
                     # 待改
                     for i, agent in enumerate(self.agents):
                         if np.random.rand() < self.epsilon:
@@ -84,11 +80,10 @@ class Runner_DGN1:
                             a = q[i].argmax().item()
                         action.append(a)
 
-                    next_obs, next_adj, reward, done_signals, info = self.env.step(action)
+                    next_obs, reward, done_signals, info = self.env.step(action)
 
-                    self.buffer.add(obs, action, reward, next_obs, adj, next_adj, info['simulation_done'])
+                    self.buffer.add(obs, action, reward, next_obs, done_signals)
                     obs = next_obs
-                    adj = next_adj
 
                 else:
                     # print(" agent_terminated_times:", self.env.agent_times)
@@ -112,47 +107,40 @@ class Runner_DGN1:
                 continue
 
             for epoch in range(self.train_epoch):
-                Obs, Act, R, Next_Obs, Mat, Next_Mat, D = self.buffer.getBatch(self.batch_size)
-                Obs = torch.Tensor(Obs).cuda()
-                Mat = torch.Tensor(Mat).cuda()
-                Next_Obs = torch.Tensor(Next_Obs).cuda()
-                Next_Mat = torch.Tensor(Next_Mat).cuda()
+                loss_sum = 0
+                batch = self.buffer.getBatch(self.batch_size)
+                for j in range(self.batch_size):
+                    sample = batch[j]
+                    Obs[j] = sample[0]
+                    Next_Obs[j] = sample[3]
 
-                q_values, attention = self.model(Obs, Mat)  # shape (128, 6, 3)
-                target_q_values, target_attention = self.model_tar(Next_Obs, Next_Mat)  # shape  (128, 6)
-                target_q_values = target_q_values.max(dim=2)[0]
+                q_values = self.model(torch.Tensor(Obs).cuda())  # shape (128, 6, 3)
+                target_q_values = self.model_tar(torch.Tensor(Next_Obs).cuda()).max(dim=2)[0]  # shape  (128, 6)
                 target_q_values = np.array(target_q_values.cpu().data)  # shape  (128, 6)
                 expected_q = np.array(q_values.cpu().data)  # (batch_size, agent_num, action_num)
 
                 for j in range(self.batch_size):
+                    sample = batch[j]
                     for i in range(self.agent_num):
                         # sample[1]: action selection list ; sample[2]: reward size-agent_num ; sample[6]: terminated
-                        expected_q[j][i][Act[j][i]] = R[j][i] + (1 - D[j]) * self.gamma * target_q_values[j][i]
-                        # if sample[6][i] != 1:
-                        #     expected_q[j][i][sample[1][i]] = sample[2][i] + self.gamma * target_q_values[j][i]
-                        # else:
-                        #     expected_q[j][i][sample[1][i]] = sample[2][i]
+                        # expected_q[j][i][sample[1][i]] = sample[2][i] + (1 - sample[6]) * self.gamma * target_q_values[j][i]
+                        if sample[4][i] != 1:
+                            expected_q[j][i][sample[1][i]] = sample[2][i] + self.gamma * target_q_values[j][i]
+                        else:
+                            expected_q[j][i][sample[1][i]] = sample[2][i]
 
-                attention = F.log_softmax(attention,dim=2)
-                target_attention = F.softmax(target_attention,dim=2)
-                target_attention = target_attention.detach()
-                loss_kl = F.kl_div(attention, target_attention, reduction='mean')
-                loss = (q_values - torch.Tensor(expected_q).cuda()).pow(2).mean() + lamb * loss_kl
+                loss = (q_values - torch.Tensor(expected_q).cuda()).pow(2).mean()
+                loss_sum += loss
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
 
-                with torch.no_grad():
-                    for p, p_targ in zip(self.model.parameters(), self.model_tar.parameters()):
-                        p_targ.data.mul_(tau)
-                        p_targ.data.add_((1 - tau) * p.data)
+            if episode % 5 == 0:
+                self.model_tar.load_state_dict(self.model.state_dict())
 
-            # if episode % 5 == 0:
-            #     self.model_tar.load_state_dict(self.model.state_dict())
-            # save model
-            # if episode != 0 and episode % 200 == 0:
-            #     torch.save(self.model.state_dict(), rl_model_dir)
-            #     print("torch save model for rl_weight")
+            if episode != 0 and episode % 200 == 0:
+                torch.save(self.model.state_dict(), rl_model_dir)
+                print("torch save model for rl_weight")
 
         end = time.time()
         print("花费时间:", end - start)
@@ -188,24 +176,21 @@ class Runner_DGN1:
         deviation = []
         for episode in range(self.args.evaluate_episodes):
             # reset the environment
-            obs, adj = self.env.reset()
+            obs = self.env.reset()
             rewards = 0
             for time_step in range(self.args.evaluate_episode_len):
                 if not self.env.simulation_done:
                     actions = []
                     obs1 = np.expand_dims(obs, 0)  # shape （1, 6, 9(observation_space)）
-                    adj1 = np.expand_dims(adj, 0)
-                    q, a_w = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())  # shape (100, 5)
-                    q = q[0]
+                    q = self.model(torch.Tensor(obs1).cuda())[0]  # shape (100, 5)
                     for i, agent in enumerate(self.agents):
-                        # a = np.random.randint(self.n_action)
                         a = q[i].argmax().item()
                         actions.append(a)
 
-                    next_obs, next_adj, reward, done_signals, info = self.env.step(actions)
+                    next_obs, reward, done_signals, info = self.env.step(actions)
                     rewards += sum(reward)
                     obs = next_obs
-                    adj = next_adj
+
                 else:
                     dev = self.env.route_deviation_rate()
                     deviation.append(np.mean(dev))
@@ -214,10 +199,11 @@ class Runner_DGN1:
             rewards = rewards / 10000
             returns.append(rewards)
             print('Returns is', rewards)
-        print("conflict num :", self.env.collision_num)
-        print("nmac num :", self.env.nmac_num)
-        print("exit boundary num：", self.env.exit_boundary_num)
-        print("success num：", self.env.success_num)
+
+        print("平均conflict num :", self.env.collision_num / self.args.evaluate_episodes)
+        print("平均nmac num :", self.env.nmac_num / self.args.evaluate_episodes)
+        print("平均exit boundary num：", self.env.exit_boundary_num / self.args.evaluate_episodes)
+        print("平均success num：", self.env.success_num / self.args.evaluate_episodes)
         print("路径平均偏差率：", np.mean(deviation))
 
         return sum(returns) / self.args.evaluate_episodes, (self.env.collision_num, self.env.exit_boundary_num, self.env.success_num, self.env.nmac_num)
@@ -241,28 +227,25 @@ class Runner_DGN1:
         eval_episode = 100
         for episode in range(eval_episode):
             # reset the environment
-            obs, adj = self.env.reset()
+            obs = self.env.reset()
             rewards = 0
             for time_step in range(self.args.evaluate_episode_len):
                 if not self.env.simulation_done:
                     actions = []
                     obs1 = np.expand_dims(obs, 0)  # shape （1, 6, 9(observation_space)）
-                    adj1 = np.expand_dims(adj, 0)
-                    q, a_w = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())  # shape (100, 5)
-                    q = q[0]
+                    q = self.model(torch.Tensor(obs1).cuda())[0]  # shape (100, 5)
                     for i, agent in enumerate(self.agents):
                         a = q[i].argmax().item()
                         actions.append(a)
                         # print("agent {} action {}".format(i, a))
 
-                    next_obs, next_adj, reward, done_signals, info = self.env.step(actions)
+                    next_obs, reward, done_signals, info = self.env.step(actions)
                     rewards += sum(reward)
                     obs = next_obs
-                    adj = next_adj
+
                 else:
                     dev = self.env.route_deviation_rate()
-                    if dev:
-                        deviation.append(np.mean(dev))
+                    deviation.append(np.mean(dev))
                     break
             # np.save(self.save_path + '/20_agent/actions/' + str(episode) + 'actions.npy',
             #         np.array(self.env.actions_total))
@@ -302,7 +285,7 @@ class Runner_DGN1:
         plt.plot(range(1, len(returns)), returns[1:])
         plt.xlabel('evaluate num')
         plt.ylabel('average returns')
-        # plt.savefig(self.save_path + '/50_agent/eval_return_2.png', format='png')
+        # plt.savefig(self.save_path + '/30_agent/eval_return_new.png', format='png')
 
         # conflict num process
         conflict_total_1 = []

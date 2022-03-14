@@ -17,6 +17,7 @@ class Runner_DGN:
         USE_CUDA = torch.cuda.is_available()
         self.env = env
         self.epsilon = args.epsilon
+        self.epsilon_decay = args.epsilon_decay
         self.num_episode = args.num_episodes
         self.max_step = args.max_episode_len
         self.agents = self.env.agents
@@ -37,7 +38,7 @@ class Runner_DGN:
         self.save_path = self.args.save_dir + '/' + self.args.scenario_name
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        self.model_name = '/35_agent/35_graph_rl_weight.pth'
+        self.model_name = '/8_agent/8_graph_rl_weight_test.pth'
         if os.path.exists(self.save_path + self.model_name):
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
             print("successfully load model: {}".format(self.model_name))
@@ -60,11 +61,12 @@ class Runner_DGN:
         rl_model_dir = self.save_path + self.model_name
         while episode < self.num_episode:
             if episode > start_episode:
-                self.epsilon = max(0.05, self.epsilon - 0.00016)
+                self.epsilon = max(0.05, self.epsilon - self.epsilon_decay)
 
             episode += 1
             step = 0
             obs, adj = self.env.reset()
+
             print("current episode {}".format(episode))
             while step < self.max_step:
                 if not self.env.simulation_done:
@@ -73,7 +75,7 @@ class Runner_DGN:
                     action = []
                     obs1 = np.expand_dims(obs, 0)  # shape （1, 6, 9(observation_space)）
                     adj1 = np.expand_dims(adj, 0)
-                    q = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())[0]  # shape (100, 3)
+                    q = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())[0]  # shape (agent_num, action_num)
                     # 待改
                     for i, agent in enumerate(self.agents):
                         if np.random.rand() < self.epsilon:
@@ -143,12 +145,18 @@ class Runner_DGN:
             if episode % 5 == 0:
                 self.model_tar.load_state_dict(self.model.state_dict())
 
-            if episode != 0 and episode % 100 == 0:
+            if episode != 0 and episode % 200 == 0:
                 torch.save(self.model.state_dict(), rl_model_dir)
                 print("torch save model for rl_weight")
 
         end = time.time()
         print("花费时间:", end - start)
+        plt.figure()
+        plt.plot(range(1, len(reward_total)), reward_total[1:])
+        plt.xlabel('evaluate num')
+        plt.ylabel('average returns')
+        plt.savefig(self.save_path + '/8_agent/8_train_returns_test.png', format='png')
+        np.save(self.save_path + '/8_agent/8_train_returns_test', np.array(reward_total))
 
         fig, a = plt.subplots(2, 2)
         plt.title('GRL_train')
@@ -161,7 +169,8 @@ class Runner_DGN:
         a[1][0].set_title('success_num')
         a[1][1].plot(x, nmac_total)
         a[1][1].set_title('nmac_num')
-        # plt.savefig(self.save_path + '/35_agent/train_metric.png', format='png')
+        plt.savefig(self.save_path + '/8_agent/train_metric_test.png', format='png')
+        np.save(self.save_path + '/8_agent/8_conflict_num_test', np.array(conflict_total))
         plt.show()
 
     def evaluate(self):
@@ -198,10 +207,11 @@ class Runner_DGN:
             rewards = rewards / 10000
             returns.append(rewards)
             print('Returns is', rewards)
-        print("conflict num :", self.env.collision_num)
-        print("nmac num :", self.env.nmac_num)
-        print("exit boundary num：", self.env.exit_boundary_num)
-        print("success num：", self.env.success_num)
+
+        print("平均conflict num :", self.env.collision_num / self.args.evaluate_episodes)
+        print("平均nmac num :", self.env.nmac_num / self.args.evaluate_episodes)
+        print("平均exit boundary num：", self.env.exit_boundary_num / self.args.evaluate_episodes)
+        print("平均success num：", self.env.success_num / self.args.evaluate_episodes)
         print("路径平均偏差率：", np.mean(deviation))
 
         return sum(returns) / self.args.evaluate_episodes, (self.env.collision_num, self.env.exit_boundary_num, self.env.success_num, self.env.nmac_num)

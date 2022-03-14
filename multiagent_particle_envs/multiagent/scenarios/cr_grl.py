@@ -12,19 +12,20 @@ class Scenario(BaseScenario):
         # penalty reward setting
         self.collision_level1 = -0.25
         self.collision_level2 = -1.0
-        self.collision_penalty = -10.0
+        self.collision_penalty = -5.0
         self.dist_to_goal_penalty = -1.0
         self.time_penalty = -0.5
         self.angle_dev = 2.0
-        self.exit_boundary = -10.0
+        self.exit_boundary = -5.0
         self.episode = 0
 
     def make_world(self):
         world = World()
         # set size of the world
-        world.set_world(-160, 160, -160, 160)
+        # world.set_world(-160, 160, -160, 160)
+        world.set_world(-40, 40, -40, 40)
         # set any world properties first
-        self.num_agents = 35
+        self.num_agents = 8
         self.num_landmarks = self.num_agents
         world.collaborative = True
         # make initial conditions
@@ -54,8 +55,8 @@ class Scenario(BaseScenario):
             landmark.color = np.array([0.25, 0.25, 0.25])
         # set random initial states
         for i, agent in enumerate(world.agents):
-            px, py, gx, gy, vx, vy, theta = self.generate_random_agent_attribute(world, i)
-            # px, py, gx, gy, vx, vy, theta = self.generate_circle_agent_attribute(world, i)
+            # px, py, gx, gy, vx, vy, theta = self.generate_random_agent_attribute(world, i)
+            px, py, gx, gy, vx, vy, theta = self.generate_circle_agent_attribute(world, i)
             world.agents[i].set(px, py, gx, gy, vx, vy, theta)
             world.agents[i].set_time_step(world.dt)
 
@@ -104,10 +105,10 @@ class Scenario(BaseScenario):
         return px, py, gx, gy, vx, vy, theta
 
     def generate_circle_agent_attribute(self, world, agent_id):
-        circle_radius = world.boundary[1] - 10
+        circle_radius = world.boundary[1] - 4
         angle = agent_id * 2 * np.pi / self.num_agents
-        px = circle_radius * np.cos(angle)
-        py = circle_radius * np.sin(angle)
+        px = circle_radius * np.cos(angle) + (np.random.random() - 0.5) * 4
+        py = circle_radius * np.sin(angle) + (np.random.random() - 0.5) * 4
         gx = -px
         gy = -py
         v = vec_normlization(sub(Vector2(gx, gy), Vector2(px, py)))
@@ -144,7 +145,7 @@ class Scenario(BaseScenario):
 
     def reward(self, world, collision_mat, reach_goals, exit_boundary, dist_to_goal):
         reward = []
-        c_v = 0
+        c_v = []
         # row, col = np.diag_indices_from(collision_mat)
         # collision_mat[row, col] = 0
         # reach_goals_idx = np.where(reach_goals)[0]
@@ -175,9 +176,10 @@ class Scenario(BaseScenario):
                 v1 = sum(np.take(collision_value_row, c1)) * -self.collision_level1
                 v2 = sum(np.take(collision_value_row, c2)) * -self.collision_level2
                 v3 = sum(collision_value_row == 1) * 2.0
-                c_v = v1 + v2 + v3
+                # c_v = v1 + v2 + v3
+                c_v.append(v1 + v2 + v3)
                 reward.append(r)
-        return reward, c_v
+        return reward, sum(c_v) / 2
 
     # def reward(self, agent, world):
     #     # Agents are rewarded based on minimum agent distance to each landmark, penalized for collisions

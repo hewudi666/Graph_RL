@@ -174,7 +174,8 @@ class Runner_maddpg:
                     s = s_next
                 else:
                     dev = self.env.route_deviation_rate()
-                    deviation.append(np.mean(dev))
+                    if dev:
+                        deviation.append(np.mean(dev))
                     break
 
             if episode > 0 and episode % 50 == 0:
@@ -214,19 +215,19 @@ class Runner_maddpg:
         plt.ylabel('average returns')
         # plt.savefig(self.save_path + '/30_eval_return.png', format='png')
 
-        # conflict num process
-        conflict_total_1 = []
-        nmac_total_1 = []
-        for i in range(len(conflict_total)):
-            if success_total[i] + collide_wall_total[i] == self.agent_num:
-                conflict_total_1.append(conflict_total[i])
-                nmac_total_1.append(nmac_total[i])
-
-        y = range(len(conflict_total))
-        conflict_total = conflict_total_1
-        nmac_total = nmac_total_1
-        x = range(len(conflict_total))
-        print("有效轮数：", len(x))
+        # # conflict num process
+        # conflict_total_1 = []
+        # nmac_total_1 = []
+        # for i in range(len(conflict_total)):
+        #     if success_total[i] + collide_wall_total[i] == self.agent_num:
+        #         conflict_total_1.append(conflict_total[i])
+        #         nmac_total_1.append(nmac_total[i])
+        #
+        # y = range(len(conflict_total))
+        # conflict_total = conflict_total_1
+        # nmac_total = nmac_total_1
+        # x = range(len(conflict_total))
+        # print("有效轮数：", len(x))
 
         fig, a = plt.subplots(2, 2)
         x = range(len(conflict_total))
@@ -241,14 +242,14 @@ class Runner_maddpg:
         print("平均出界率", ave_exit / self.agent_num)
         print("0冲突占比：", zero_conflict / len(conflict_total))
         print("平均偏差率", np.mean(deviation))
-        a[0][0].plot(x, conflict_total, 'b')
-        a[0][0].set_title('conflict_num')
-        a[0][1].plot(y, collide_wall_total, 'y')
-        a[0][1].set_title('exit_boundary_num')
-        a[1][0].plot(y, success_total, 'r')
-        a[1][0].set_title('success_num')
-        a[1][1].plot(x, nmac_total)
-        a[1][1].set_title('nmac_num')
+        # a[0][0].plot(x, conflict_total, 'b')
+        # a[0][0].set_title('conflict_num')
+        # a[0][1].plot(y, collide_wall_total, 'y')
+        # a[0][1].set_title('exit_boundary_num')
+        # a[1][0].plot(y, success_total, 'r')
+        # a[1][0].set_title('success_num')
+        # a[1][1].plot(x, nmac_total)
+        # a[1][1].set_title('nmac_num')
         # plt.savefig(self.save_path + '/30_eval_metric.png', format='png')
 
         plt.show()
