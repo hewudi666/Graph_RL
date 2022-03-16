@@ -26,7 +26,7 @@ class Runner_DQN:
         self.hidden_dim = 128
         self.lr = 1e-4
         self.batch_size = args.batch_size
-        self.train_epoch = 5
+        self.train_epoch = 10
         self.gamma = args.gamma
         self.observation_space = self.env.observation_space
         self.model = DQN(self.agent_num, self.observation_space, self.hidden_dim, self.n_action)
@@ -37,7 +37,7 @@ class Runner_DQN:
         self.save_path = self.args.save_dir + '/' + self.args.scenario_name
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        self.model_name = '/8_agent/8_graph_rl_weight_test.pth'
+        self.model_name = '/30_agent/30_graph_rl_weight_test.pth'
         if os.path.exists(self.save_path + self.model_name):
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
             print("successfully load model: {}".format(self.model_name))
@@ -148,8 +148,8 @@ class Runner_DQN:
         plt.plot(range(1, len(reward_total)), reward_total[1:])
         plt.xlabel('evaluate num')
         plt.ylabel('average returns')
-        plt.savefig(self.save_path + '/8_agent/8_train_returns_test.png', format='png')
-        np.save(self.save_path + '/8_agent/8_train_returns_test', np.array(reward_total))
+        plt.savefig(self.save_path + '/30_agent/30_train_returns_test.png', format='png')
+        np.save(self.save_path + '/30_agent/30_train_returns_test', np.array(reward_total))
 
         fig, a = plt.subplots(2, 2)
         plt.title('GRL_train')
@@ -162,8 +162,8 @@ class Runner_DQN:
         a[1][0].set_title('success_num')
         a[1][1].plot(x, nmac_total)
         a[1][1].set_title('nmac_num')
-        plt.savefig(self.save_path + '/8_agent/train_metric_test.png', format='png')
-        np.save(self.save_path + '/8_agent/8_conflict_num_test', np.array(conflict_total))
+        plt.savefig(self.save_path + '/30_agent/train_metric_test.png', format='png')
+        np.save(self.save_path + '/30_agent/30_conflict_num_test', np.array(conflict_total))
         plt.show()
 
     def evaluate(self):
@@ -301,9 +301,7 @@ class Runner_DQN:
         x = range(len(conflict_total))
         print("有效轮数：", len(x))
         fig, a = plt.subplots(2, 2)
-        # 去除冲突数极大值
-        conflict_total[conflict_total.index(max(conflict_total))] = 0
-        conflict_total[conflict_total.index(max(conflict_total))] = 0
+
         ave_conflict = np.mean(conflict_total)
         ave_nmac = np.mean(nmac_total)
         ave_success = np.mean(success_total)

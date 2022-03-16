@@ -1348,7 +1348,7 @@ class MultiAgentEnv_DQN(MultiAgentEnv):
                 # # no collision resolution
                 # agent.done = 0
                 # print("sum collision_value", np.sum(collision_value_row))
-                if np.sum(collision_value_row) <= 0.0:
+                if np.sum(collision_value_row) <= 0.01:
                     agent.done = 0
                 else:
                     agent.done = 3
@@ -1356,7 +1356,6 @@ class MultiAgentEnv_DQN(MultiAgentEnv):
         # compute reward
         reward, c_v = self.reward_callback(self.world, collision_mat, Reach_Goal, Exit_Boundary, dist_to_goal)
         self.collision_value.append(c_v)
-        next_adj = collision_mat
 
         terminal = True
         # 判断是否到达终态
