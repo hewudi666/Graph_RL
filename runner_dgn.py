@@ -38,7 +38,7 @@ class Runner_DGN:
         self.save_path = self.args.save_dir + '/' + self.args.scenario_name
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        self.model_name = '/8_agent/8_graph_rl_weight_test.pth'
+        self.model_name = '/30_agent/30_graph_rl_weight_cm1.pth'
         if os.path.exists(self.save_path + self.model_name):
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
             print("successfully load model: {}".format(self.model_name))
@@ -155,8 +155,8 @@ class Runner_DGN:
         plt.plot(range(1, len(reward_total)), reward_total[1:])
         plt.xlabel('evaluate num')
         plt.ylabel('average returns')
-        plt.savefig(self.save_path + '/8_agent/8_train_returns_test.png', format='png')
-        np.save(self.save_path + '/8_agent/8_train_returns_test', np.array(reward_total))
+        plt.savefig(self.save_path + '/30_agent/30_train_returns_test_no_cm1.png', format='png')
+        np.save(self.save_path + '/30_agent/30_train_returns_test_no_cm1', np.array(reward_total))
 
         fig, a = plt.subplots(2, 2)
         plt.title('GRL_train')
@@ -169,8 +169,8 @@ class Runner_DGN:
         a[1][0].set_title('success_num')
         a[1][1].plot(x, nmac_total)
         a[1][1].set_title('nmac_num')
-        plt.savefig(self.save_path + '/8_agent/train_metric_test.png', format='png')
-        np.save(self.save_path + '/8_agent/8_conflict_num_test', np.array(conflict_total))
+        plt.savefig(self.save_path + '/30_agent/train_metric_test_no_cm1.png', format='png')
+        np.save(self.save_path + '/30_agent/30_conflict_num_test_no_cm1', np.array(conflict_total))
         plt.show()
 
     def evaluate(self):

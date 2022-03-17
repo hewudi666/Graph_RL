@@ -578,6 +578,7 @@ class Collision_Network():
         self.obs = obs
         self.agent_num = len(self.obs)
         self.cm = np.zeros((self.agent_num, self.agent_num), dtype='float32')
+        self.cm1 = np.zeros((self.agent_num, self.agent_num), dtype='float32')
         self.dm = np.zeros((self.agent_num, self.agent_num), dtype='float32')
 
     def collision_matrix(self):
@@ -589,6 +590,8 @@ class Collision_Network():
             if self.obs[i].done == 1 or self.obs[i] == 2:
                 self.cm[i, :] = 0
                 self.cm[:, i] = 0
+                self.cm1[i, :] = 0
+                self.cm1[:, i] = 0
                 continue
             own_id = i
             own_pos = Vector2(self.obs[i].px, self.obs[i].py)
@@ -603,11 +606,14 @@ class Collision_Network():
                 collision = cd.collision_detect()  # True/False
                 # if collision:
                 #     print("agent {} exist potential collide with agent {}".format(i, j))
+                if collision:
+                    self.cm1[i][j] = 1.0
+                    self.cm1[j][i] = 1.0
                 collision_value = cd.calc_collision_value()
                 self.cm[i][j] = collision_value
                 self.cm[j][i] = collision_value
 
-        return self.cm
+        return self.cm, self.cm1
 
     def dist_matrix(self):
         for i in range(self.agent_num):

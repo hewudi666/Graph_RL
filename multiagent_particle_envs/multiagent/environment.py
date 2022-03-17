@@ -358,22 +358,26 @@ class MultiAgentEnv_GRL(MultiAgentEnv):
         self.actions_total = []
         self.states.append(obs)
         cnet = Collision_Network(obs)
-        adj = cnet.collision_matrix()
+        adj, adj_ = cnet.collision_matrix()
         # initial agent done
-        collision_mat = cnet.collision_matrix()
+        collision_mat, _ = cnet.collision_matrix()
         row, col = np.diag_indices_from(collision_mat)
         collision_mat[row, col] = 0
+        adj_[row, col] = 0
 
         # agent done --- 0 or 3
         for i, agent in enumerate(self.agents):
-            collision_value_row = collision_mat[i]
-            if np.sum(collision_value_row) <= 0.0:
+            # # no collision resolution
+            # agent.done = 0
+            # collision_value_row = collision_mat[i]
+            collision_value_row = adj_[i]
+            if np.sum(collision_value_row) <= 0.05:
                 agent.done = 0
             else:
                 agent.done = 3
 
         obs = self.get_obs(obs)
-        return obs, adj
+        return obs, adj_
 
     def step(self, actions):
         """
@@ -443,19 +447,24 @@ class MultiAgentEnv_GRL(MultiAgentEnv):
         self.states.append(next_obs)
         # generate collision network
         cnet = Collision_Network(next_obs)
-        collision_mat = cnet.collision_matrix()
+        collision_mat, cm1 = cnet.collision_matrix()
         dist_mat = cnet.dist_matrix()
         row, col = np.diag_indices_from(collision_mat)
         collision_mat[row, col] = 0
+        cm1[row, col] = 0
         dist_mat[row, col] = inf
         reach_goals_idx = np.where(Reach_Goal)[0]
         collision_mat[reach_goals_idx, :] = 0
         collision_mat[:, reach_goals_idx] = 0
+        cm1[reach_goals_idx, :] = 0
+        cm1[:, reach_goals_idx] = 0
         dist_mat[reach_goals_idx, :] = inf
         dist_mat[:, reach_goals_idx] = inf
         exit_idx = np.where(Exit_Boundary)[0]
         collision_mat[exit_idx, :] = 0
         collision_mat[:, exit_idx] = 0
+        cm1[exit_idx, :] = 0
+        cm1[:, exit_idx] = 0
         dist_mat[exit_idx, :] = inf
         dist_mat[:, exit_idx] = inf
 
@@ -463,6 +472,7 @@ class MultiAgentEnv_GRL(MultiAgentEnv):
         for i, agent in enumerate(self.agents):
             if agent.done != 1 and agent.done != 2:
                 collision_value_row = collision_mat[i]
+                collision_value_row1 = cm1[i]
                 d = dist_mat[i]
                 self.collision_num += sum(collision_value_row == 1) / 2
                 if sum(collision_value_row == 1) / 2 != 0:
@@ -473,7 +483,8 @@ class MultiAgentEnv_GRL(MultiAgentEnv):
                 # # no collision resolution
                 # agent.done = 0
                 # print("sum collision_value", np.sum(collision_value_row))
-                if np.sum(collision_value_row) <= 0.0:
+                # if np.sum(collision_value_row) <= 0.05:
+                if np.sum(collision_value_row1) <= 0.05:
                     agent.done = 0
                 else:
                     agent.done = 3
@@ -481,7 +492,8 @@ class MultiAgentEnv_GRL(MultiAgentEnv):
         # compute reward
         reward, c_v = self.reward_callback(self.world, collision_mat, Reach_Goal, Exit_Boundary, dist_to_goal)
         self.collision_value.append(c_v)
-        next_adj = collision_mat
+        # next_adj = collision_mat
+        next_adj = cm1
 
         terminal = True
         # 判断是否到达终态

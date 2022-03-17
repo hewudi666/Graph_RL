@@ -33,8 +33,8 @@ class AttModel(nn.Module):
 		v = F.relu(self.fcv(x))
 		q = F.relu(self.fcq(x))
 		k = F.relu(self.fck(x)).permute(0,2,1)
-		h = torch.clamp(torch.mul(torch.bmm(q,k), mask), 0 , 9e13) - 9e15*(1 - mask)
-		att = F.softmax(h, dim=2)
+		h = torch.clamp(torch.mul(torch.bmm(q,k), mask), 0 , 9e13) - 9e15*(1 - mask) #
+		att = F.softmax(h, dim=2) # 权重
 
 		out = torch.bmm(att,v)
 		#out = torch.add(out,v)

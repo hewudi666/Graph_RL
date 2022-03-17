@@ -40,7 +40,7 @@ class Runner_DGN1:
         self.save_path = self.args.save_dir + '/' + self.args.scenario_name
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        self.model_name = '/8_agent/8_graph_rl_weight_test.pth'
+        self.model_name = '/4_agent/4_graph_rl_weight_test.pth'
         if os.path.exists(self.save_path + self.model_name):
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
             print("successfully load model: {}".format(self.model_name))
@@ -112,12 +112,25 @@ class Runner_DGN1:
                 continue
 
             for epoch in range(self.train_epoch):
+                """
+                batch_size: 64
+                Obs: tensor shape (batch_size, agent_num, obs_shape)
+                Act: shape (batch_size, agent_num) 每个batch表示单步各智能体选择的决策编号
+                R: shape (batch_size, agent_num) 每个batch表示单步各智能体获取收益
+                Mat: tensor shape (batch_size, agent_num, agent_num) 单步个智能体之间关系
+                """
                 Obs, Act, R, Next_Obs, Mat, Next_Mat, D = self.buffer.getBatch(self.batch_size)
                 Obs = torch.Tensor(Obs).cuda()
                 Mat = torch.Tensor(Mat).cuda()
                 Next_Obs = torch.Tensor(Next_Obs).cuda()
                 Next_Mat = torch.Tensor(Next_Mat).cuda()
-
+                """
+                q_values: shape (batch_size, agent_num, action_num) 
+                attention: shape (batch_size, agent_num, agent_num)
+                target_q_values: (batch_size, agent_num) 把5个动作中最大q_values提取出来
+                target_attention: shape (batch_size, agent_num, agent_num)
+                expected_q: (batch_size, agent_num, action_num)
+                """
                 q_values, attention = self.model(Obs, Mat)  # shape (128, 6, 3)
                 target_q_values, target_attention = self.model_tar(Next_Obs, Next_Mat)  # shape  (128, 6)
                 target_q_values = target_q_values.max(dim=2)[0]
@@ -137,7 +150,9 @@ class Runner_DGN1:
                 target_attention = F.softmax(target_attention,dim=2)
                 target_attention = target_attention.detach()
                 loss_kl = F.kl_div(attention, target_attention, reduction='mean')
+                print("loss_kl: ", loss_kl)
                 loss = (q_values - torch.Tensor(expected_q).cuda()).pow(2).mean() + lamb * loss_kl
+                print("loss: ", loss)
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
@@ -214,10 +229,11 @@ class Runner_DGN1:
             rewards = rewards / 10000
             returns.append(rewards)
             print('Returns is', rewards)
-        print("conflict num :", self.env.collision_num)
-        print("nmac num :", self.env.nmac_num)
-        print("exit boundary num：", self.env.exit_boundary_num)
-        print("success num：", self.env.success_num)
+
+        print("平均conflict num :", self.env.collision_num / self.args.evaluate_episodes)
+        print("平均nmac num :", self.env.nmac_num / self.args.evaluate_episodes)
+        print("平均exit boundary num：", self.env.exit_boundary_num / self.args.evaluate_episodes)
+        print("平均success num：", self.env.success_num / self.args.evaluate_episodes)
         print("路径平均偏差率：", np.mean(deviation))
 
         return sum(returns) / self.args.evaluate_episodes, (self.env.collision_num, self.env.exit_boundary_num, self.env.success_num, self.env.nmac_num)
