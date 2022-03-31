@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 class Runner_maddpg:
     def __init__(self, args, env):
         self.args = args
-        device = self.args.device
+        self.device = self.args.device
         self.noise = args.noise_rate
         self.epsilon = args.epsilon
         self.epsilon_decay = args.epsilon_decay
@@ -42,12 +42,13 @@ class Runner_maddpg:
                     u = []
                     with torch.no_grad():
                         for i, agent in enumerate(self.agents):
-                            action = agent.select_action(s[i], self.noise, self.epsilon)
+                            s_i = torch.FloatTensor(s[i]).to(self.device)
+                            action = agent.select_action(s_i, self.noise, self.epsilon)
                             u.append(action)
                             actions.append(action)
 
                     s_next, r, done, info = self.env.step(actions)
-
+                    r_eval = info['reward_eval']
                     self.buffer.store_episode(s, u, r, s_next)
                     s = s_next
                     if self.buffer.current_size >= self.args.batch_size:
@@ -56,7 +57,8 @@ class Runner_maddpg:
                             other_agents = self.agents.copy()
                             other_agents.remove(agent)
                             agent.learn(transitions, other_agents)
-                    reward_episode.append(sum(r) / 1000)
+
+                    reward_episode.append(sum(r_eval) / 1000)
 
                 else:
                     # print("robot_terminated_times:", self.env.agent_times)
@@ -84,8 +86,8 @@ class Runner_maddpg:
         plt.plot(range(1, len(returns)), returns[1:])
         plt.xlabel('evaluate num')
         plt.ylabel('average returns')
-        plt.savefig(self.save_path + '/35_train_return.png', format='png')
-        np.save(self.save_path + '/35_train_returns.pkl', returns)
+        plt.savefig(self.save_path + '/30_train_return_test.png', format='png')
+        np.save(self.save_path + '/30_train_returns_test', np.array(returns))
 
         fig, a = plt.subplots(2, 2)
         x = range(len(conflict_total))
@@ -97,8 +99,9 @@ class Runner_maddpg:
         a[1][0].set_title('success_num')
         a[1][1].plot(x, nmac_total)
         a[1][1].set_title('nmac_num')
-        plt.savefig(self.save_path + '/35_train_metric.png', format='png')
-        np.save(self.save_path + '/35_train_returns.pkl', conflict_total)
+        plt.savefig(self.save_path + '/30_train_metric_test.png', format='png')
+        np.save(self.save_path + '/30_train_conflict_test', np.array(conflict_total))
+        np.save(self.save_path + '/30_train_success_test', np.array(success_total))
 
         plt.show()
 
@@ -120,25 +123,33 @@ class Runner_maddpg:
                     actions = []
                     with torch.no_grad():
                         for agent_id, agent in enumerate(self.agents):
-                            action = agent.select_action(s[agent_id], 0, 0)
+                            s_i = torch.FloatTensor(s[agent_id]).to(self.device)
+                            action = agent.select_action(s_i, 0, 0)
                             actions.append(action)
                     s_next, r, done, info = self.env.step(actions)
-                    rewards += sum(r)
+                    r_eval = info['reward_eval']
+                    rewards += sum(r_eval)
                     s = s_next
                 else:
                     dev = self.env.route_deviation_rate()
                     deviation.append(np.mean(dev))
                     break
+
             rewards = rewards / 10000
             returns.append(rewards)
             print('Returns is', rewards)
-        print("conflict num :", self.env.collision_num)
-        print("nmac num", self.env.nmac_num)
-        print("exit boundary num：", self.env.exit_boundary_num)
-        print("success num：", self.env.success_num)
+
+        print("平均conflict num :", self.env.collision_num / self.args.evaluate_episodes)
+        print("平均reward :", sum(returns) / self.args.evaluate_episodes)
+        print("平均nmac num :", self.env.nmac_num / self.args.evaluate_episodes)
+        print("平均exit boundary num：", self.env.exit_boundary_num / self.args.evaluate_episodes)
+        print("平均success num：", self.env.success_num / self.args.evaluate_episodes)
         print("路径平均偏差率：", np.mean(deviation))
 
-        return sum(returns) / self.args.evaluate_episodes, (self.env.collision_num, self.env.exit_boundary_num, self.env.success_num, self.env.nmac_num)
+        return sum(returns) / self.args.evaluate_episodes, (
+            self.env.collision_num / self.args.evaluate_episodes,
+            self.env.exit_boundary_num / self.args.evaluate_episodes,
+            self.env.success_num / self.args.evaluate_episodes, self.env.nmac_num / self.args.evaluate_episodes)
 
     def evaluate_model(self):
         """
@@ -167,7 +178,8 @@ class Runner_maddpg:
                     actions = []
                     with torch.no_grad():
                         for agent_id, agent in enumerate(self.agents):
-                            action = agent.select_action(s[agent_id], 0, 0)
+                            s_i = torch.FloatTensor(s[agent_id]).to(self.device)
+                            action = agent.select_action(s_i, 0, 0)
                             actions.append(action)
                     s_next, r, done, info = self.env.step(actions)
                     rewards += sum(r)

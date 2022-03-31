@@ -32,7 +32,7 @@ def store_args(method):
 
 
 def make_env(args):
-    from multiagent_particle_envs.multiagent.environment import MultiAgentEnv, MultiAgentEnv_GRL, MultiAgentEnv_maddpg, MultiAgentEnv_ppo, MultiAgentEnv_DQN, MultiAgentEnv_ppo_cnn, MultiAgentEnv_ppo_lstm
+    from multiagent_particle_envs.multiagent.environment import MultiAgentEnv, MultiAgentEnv_GRL, MultiAgentEnv_maddpg, MultiAgentEnv_ppo, MultiAgentEnv_DQN
     import multiagent_particle_envs.multiagent.scenarios as scenarios
 
     # load scenario from script
@@ -54,10 +54,10 @@ def make_env(args):
         env = MultiAgentEnv_ppo(world, scenario.reset_world, scenario.reward, args=args)
     elif args.scenario_name == 'cr_dqn':
         env = MultiAgentEnv_DQN(world, scenario.reset_world, scenario.reward)
-    elif args.scenario_name == 'cr_ppo_cnn':
-        env = MultiAgentEnv_ppo_cnn(world, scenario.reset_world, scenario.reward, args=args)
-    else:
-        env = MultiAgentEnv_ppo_lstm(world, scenario.reset_world, scenario.reward, args=args)
+    # elif args.scenario_name == 'cr_ppo_cnn':
+    #     env = MultiAgentEnv_ppo_cnn(world, scenario.reset_world, scenario.reward, args=args)
+    # else:
+    #     env = MultiAgentEnv_ppo_lstm(world, scenario.reset_world, scenario.reward, args=args)
     # env = MultiAgentEnv(world, scenario.reset_world, scenario.reward, scenario.observation)
     # 以下部分添加到MultiAgentEnv中
     args.n_agents = env.agent_num

@@ -84,9 +84,8 @@ class PPO:
         if not os.path.exists(self.model_path):
             os.mkdir(self.model_path)
 
-        self.actor_model_name = '/8_actor_params.pkl'
-        self.critic_model_name = '/8_critic_params.pkl'
-
+        self.actor_model_name = '/30_actor_params_test1.pkl'
+        self.critic_model_name = '/30_critic_params_test1.pkl'
 
         # 加载模型
         if os.path.exists(self.model_path + self.actor_model_name) and self.training_step == 0:

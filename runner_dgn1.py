@@ -10,6 +10,32 @@ import numpy as np
 import logging
 import time
 
+class CosineSimilarity(nn.Module):
+
+    def forward(self, tensor_1, tensor_2):
+        norm_tensor_1 = tensor_1.norm(dim=-1, keepdim=True)
+        norm_tensor_2 = tensor_2.norm(dim=-1, keepdim=True)
+        norm_tensor_1 = norm_tensor_1.numpy()
+        norm_tensor_2 = norm_tensor_2.numpy()
+
+        for i, vec2 in enumerate(norm_tensor_1[0]):
+            for j, scalar in enumerate(vec2):
+                if scalar == 0:
+                    norm_tensor_1[0][i][j] = 1
+        for i, vec2 in enumerate(norm_tensor_2[0]):
+            for j, scalar in enumerate(vec2):
+                if scalar == 0:
+                    norm_tensor_2[0][i][j] = 1
+        norm_tensor_1 = torch.tensor(norm_tensor_1)
+        norm_tensor_2 = torch.tensor(norm_tensor_2)
+        normalized_tensor_1 = tensor_1 / norm_tensor_1
+        normalized_tensor_2 = tensor_2 / norm_tensor_2
+        return (normalized_tensor_1 * normalized_tensor_2).sum(dim=-1)
+# tensor_1 = torch.randn((1,2,10))
+# tensor_2 = torch.randn((1,2,10))
+# cos = CosineSimilarity()
+# c = cos(tensor_1, tensor_2)
+# print(c)
 
 class Runner_DGN1:
     def __init__(self, args, env):
@@ -25,7 +51,7 @@ class Runner_DGN1:
         self.agents = self.env.agents
         self.agent_num = self.env.agent_num
         self.n_action = 5
-        self.hidden_dim = 64
+        self.hidden_dim = 128
         self.buffer = ReplayBuffer(args.buffer_size, 9, self.n_action, self.agent_num)
         self.lr = 1e-4
         self.batch_size = args.batch_size
@@ -40,14 +66,24 @@ class Runner_DGN1:
         self.save_path = self.args.save_dir + '/' + self.args.scenario_name
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        self.model_name = '/4_agent/4_graph_rl_weight_test.pth'
+        self.model_name = '/30_agent/30_graph_rl_weight_dynamic.pth'
         if os.path.exists(self.save_path + self.model_name):
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
             print("successfully load model: {}".format(self.model_name))
 
+    def js_div(self, p_output, q_output, get_softmax=True):
+        """
+        Function that measures JS divergence between target and output logits:
+        """
+        KLDivLoss = nn.KLDivLoss(reduction='batchmean')
+        if get_softmax:
+            p_output = F.softmax(p_output, dim=-1)
+            q_output = F.softmax(q_output, dim=-1)
+        log_mean_output = ((p_output + q_output) / 2).log()
+        return (KLDivLoss(log_mean_output, p_output) + KLDivLoss(log_mean_output, q_output)) / 2
+
     def run(self):
-        KL = nn.KLDivLoss()
-        lamb = 0.1
+        lamb = 1.0
         tau = 0.98
         reward_total = []
         conflict_total = []
@@ -146,13 +182,16 @@ class Runner_DGN1:
                         # else:
                         #     expected_q[j][i][sample[1][i]] = sample[2][i]
 
-                attention = F.log_softmax(attention,dim=2)
-                target_attention = F.softmax(target_attention,dim=2)
-                target_attention = target_attention.detach()
-                loss_kl = F.kl_div(attention, target_attention, reduction='mean')
-                print("loss_kl: ", loss_kl)
-                loss = (q_values - torch.Tensor(expected_q).cuda()).pow(2).mean() + lamb * loss_kl
-                print("loss: ", loss)
+                attention = F.softmax(attention, dim=-1)
+                # attention = F.log_softmax(attention,dim=-1)
+                target_attention = F.softmax(target_attention, dim=-1)
+                # target_attention = target_attention.detach()
+                # loss_kl = F.kl_div(attention, target_attention, reduction='batchmean')
+                # print("loss_kl: ", loss_kl)
+                loss_js = self.js_div(attention, target_attention)
+                loss1 = (q_values - torch.Tensor(expected_q).cuda()).pow(2).mean()
+                loss = loss1 + lamb * loss_js
+                # print("loss: ", (loss1.data, (lamb * loss_js).data))
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
@@ -162,12 +201,12 @@ class Runner_DGN1:
                         p_targ.data.mul_(tau)
                         p_targ.data.add_((1 - tau) * p.data)
 
-            # if episode % 5 == 0:
-            #     self.model_tar.load_state_dict(self.model.state_dict())
-            # save model
-            # if episode != 0 and episode % 200 == 0:
-            #     torch.save(self.model.state_dict(), rl_model_dir)
-            #     print("torch save model for rl_weight")
+            if episode % 5 == 0:
+                self.model_tar.load_state_dict(self.model.state_dict())
+            # # save model
+            if episode != 0 and episode % 200 == 0:
+                torch.save(self.model.state_dict(), rl_model_dir)
+                print("torch save model for rl_weight")
 
         end = time.time()
         print("花费时间:", end - start)
@@ -175,8 +214,8 @@ class Runner_DGN1:
         plt.plot(range(1, len(reward_total)), reward_total[1:])
         plt.xlabel('evaluate num')
         plt.ylabel('average returns')
-        plt.savefig(self.save_path + '/8_agent/8_train_returns_test.png', format='png')
-        np.save(self.save_path + '/8_agent/8_train_returns_test', np.array(reward_total))
+        plt.savefig(self.save_path + '/30_agent/30_train_returns_dynamic.png', format='png')
+        np.save(self.save_path + '/30_agent/30_train_returns_dynamic', np.array(reward_total))
 
         fig, a = plt.subplots(2, 2)
         plt.title('GRL_train')
@@ -189,8 +228,8 @@ class Runner_DGN1:
         a[1][0].set_title('success_num')
         a[1][1].plot(x, nmac_total)
         a[1][1].set_title('nmac_num')
-        plt.savefig(self.save_path + '/8_agent/train_metric_test.png', format='png')
-        np.save(self.save_path + '/8_agent/8_conflict_num_test', np.array(conflict_total))
+        plt.savefig(self.save_path + '/30_agent/train_metric_dynamic.png', format='png')
+        np.save(self.save_path + '/30_agent/30_conflict_num_dynamic', np.array(conflict_total))
         plt.show()
 
     def evaluate(self):
@@ -231,12 +270,16 @@ class Runner_DGN1:
             print('Returns is', rewards)
 
         print("平均conflict num :", self.env.collision_num / self.args.evaluate_episodes)
+        print("平均reward :", sum(returns) / self.args.evaluate_episodes)
         print("平均nmac num :", self.env.nmac_num / self.args.evaluate_episodes)
         print("平均exit boundary num：", self.env.exit_boundary_num / self.args.evaluate_episodes)
         print("平均success num：", self.env.success_num / self.args.evaluate_episodes)
         print("路径平均偏差率：", np.mean(deviation))
 
-        return sum(returns) / self.args.evaluate_episodes, (self.env.collision_num, self.env.exit_boundary_num, self.env.success_num, self.env.nmac_num)
+        return sum(returns) / self.args.evaluate_episodes, (
+        self.env.collision_num / self.args.evaluate_episodes, self.env.exit_boundary_num / self.args.evaluate_episodes,
+        self.env.success_num / self.args.evaluate_episodes, self.env.nmac_num / self.args.evaluate_episodes)
+
 
     def evaluate_model(self):
         """
@@ -348,14 +391,14 @@ class Runner_DGN1:
         print("平均出界率", ave_exit / self.agent_num)
         print("0冲突占比：", zero_conflict / len(conflict_total))
         print("平均偏差率", np.mean(deviation))
-        a[0][0].plot(x, conflict_total, 'b')
-        a[0][0].set_title('conflict_num')
-        a[0][1].plot(y, collide_wall_total, 'y')
-        a[0][1].set_title('exit_boundary_num')
-        a[1][0].plot(y, success_total, 'r')
-        a[1][0].set_title('success_num')
-        a[1][1].plot(x, nmac_total)
-        a[1][1].set_title('nmac_num')
-        # plt.savefig(self.save_path + '/50_agent/eval_metric2.png', format='png')
-
-        plt.show()
+        # a[0][0].plot(x, conflict_total, 'b')
+        # a[0][0].set_title('conflict_num')
+        # a[0][1].plot(y, collide_wall_total, 'y')
+        # a[0][1].set_title('exit_boundary_num')
+        # a[1][0].plot(y, success_total, 'r')
+        # a[1][0].set_title('success_num')
+        # a[1][1].plot(x, nmac_total)
+        # a[1][1].set_title('nmac_num')
+        # # plt.savefig(self.save_path + '/50_agent/eval_metric2.png', format='png')
+        #
+        # plt.show()

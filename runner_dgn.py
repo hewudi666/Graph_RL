@@ -27,7 +27,7 @@ class Runner_DGN:
         self.hidden_dim = 128
         self.lr = 1e-4
         self.batch_size = args.batch_size
-        self.train_epoch = 20
+        self.train_epoch = 10
         self.gamma = args.gamma
         self.observation_space = self.env.observation_space
         self.model = DGN(self.agent_num, self.observation_space, self.hidden_dim, self.n_action)
@@ -38,7 +38,8 @@ class Runner_DGN:
         self.save_path = self.args.save_dir + '/' + self.args.scenario_name
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        self.model_name = '/30_agent/30_graph_rl_weight_cm1.pth'
+        self.output_file = self.save_path + '/15_agent/video/test.gif'
+        self.model_name = '/30_agent/30_graph_rl_weight.pth'
         if os.path.exists(self.save_path + self.model_name):
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
             print("successfully load model: {}".format(self.model_name))
@@ -55,7 +56,7 @@ class Runner_DGN:
         collide_wall_total = []
         success_total = []
         nmac_total = []
-        start_episode = 50
+        start_episode = 40
         start = time.time()
         episode = -1
         rl_model_dir = self.save_path + self.model_name
@@ -214,7 +215,7 @@ class Runner_DGN:
         print("平均success num：", self.env.success_num / self.args.evaluate_episodes)
         print("路径平均偏差率：", np.mean(deviation))
 
-        return sum(returns) / self.args.evaluate_episodes, (self.env.collision_num, self.env.exit_boundary_num, self.env.success_num, self.env.nmac_num)
+        return sum(returns) / self.args.evaluate_episodes, (self.env.collision_num / self.args.evaluate_episodes, self.env.exit_boundary_num / self.args.evaluate_episodes, self.env.success_num / self.args.evaluate_episodes, self.env.nmac_num / self.args.evaluate_episodes)
 
     def evaluate_model(self):
         """
@@ -260,6 +261,7 @@ class Runner_DGN:
             #         np.array(self.env.actions_total))
 
             if episode > 0 and episode % 50 == 0:
+                # self.env.render(mode='video', output_file=self.output_file)
                 self.env.render(mode='traj')
             # if episode > 0:
             #     self.env.render(mode='traj')

@@ -47,8 +47,8 @@ class Runner_PPO:
                         trans = Transition(s[i], actions[i], action_probs[i], r[i], s_next[i])
                         agent.policy.store_transition(trans)
                     s = s_next
-
-                    reward_episode.append(sum(r) / 1000)
+                    r_eval = info['reward_eval']
+                    reward_episode.append(sum(r_eval) / 1000)
                 else:
                     # print("robot_terminated_times:", self.env.agent_times)
                     if self.env.simulation_done:
@@ -78,8 +78,8 @@ class Runner_PPO:
         plt.plot(range(1, len(returns)), returns[1:])
         plt.xlabel('evaluate num')
         plt.ylabel('average returns')
-        # plt.savefig(self.save_path + '/35_train_return.png', format='png')
-        # np.save(self.save_path + '/35_train_returns', returns)
+        plt.savefig(self.save_path + '/30_train_return_test1.png', format='png')
+        np.save(self.save_path + '/30_train_returns_test1', np.array(returns))
 
         fig, a = plt.subplots(2, 2)
         x = range(len(conflict_total))
@@ -91,8 +91,9 @@ class Runner_PPO:
         a[1][0].set_title('success_num')
         a[1][1].plot(x, nmac_total)
         a[1][1].set_title('nmac_num')
-        # plt.savefig(self.save_path + '/35_train_metric.png', format='png')
-        # np.save(self.save_path + '/35_train_returns', conflict_total)
+        plt.savefig(self.save_path + '/30_train_metric_test1.png', format='png')
+        np.save(self.save_path + '/30_train_conflict_test1', np.array(conflict_total))
+        np.save(self.save_path + '/30_train_success_test1', np.array(success_total))
 
         plt.show()
 
@@ -116,22 +117,29 @@ class Runner_PPO:
                         action, action_prob = agent.policy.select_action(s[agent_id])
                         actions.append(action)
                     s_next, r, done, info = self.env.step(actions)
-                    rewards += sum(r)
+                    r_eval = info['reward_eval']
+                    rewards += sum(r_eval)
                     s = s_next
                 else:
                     dev = self.env.route_deviation_rate()
                     deviation.append(np.mean(dev))
                     break
+
             rewards = rewards / 10000
             returns.append(rewards)
             print('Returns is', rewards)
-        print("conflict num :", self.env.collision_num)
-        print("nmac num :", self.env.nmac_num)
-        print("exit boundary num：", self.env.exit_boundary_num)
-        print("success num：", self.env.success_num)
+
+        print("平均conflict num :", self.env.collision_num / self.args.evaluate_episodes)
+        print("平均reward :", sum(returns) / self.args.evaluate_episodes)
+        print("平均nmac num :", self.env.nmac_num / self.args.evaluate_episodes)
+        print("平均exit boundary num：", self.env.exit_boundary_num / self.args.evaluate_episodes)
+        print("平均success num：", self.env.success_num / self.args.evaluate_episodes)
         print("路径平均偏差率：", np.mean(deviation))
 
-        return sum(returns) / self.args.evaluate_episodes, (self.env.collision_num, self.env.exit_boundary_num, self.env.success_num, self.env.nmac_num)
+        return sum(returns) / self.args.evaluate_episodes, (
+            self.env.collision_num / self.args.evaluate_episodes,
+            self.env.exit_boundary_num / self.args.evaluate_episodes,
+            self.env.success_num / self.args.evaluate_episodes, self.env.nmac_num / self.args.evaluate_episodes)
 
     def evaluate_model(self):
         """

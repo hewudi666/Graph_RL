@@ -12,10 +12,10 @@ if __name__ == '__main__':
     # get the params
     args = get_args()
     env, args = make_env(args)
-    # runner = Runner_DGN(args, env)
+    runner = Runner_DGN(args, env)
     # runner = Runner_DGN1(args, env)
     # runner = Runner_maddpg(args, env)
-    runner = Runner_PPO(args, env)
+    # runner = Runner_PPO(args, env)
     if args.evaluate:
         runner.evaluate_model()
     else:

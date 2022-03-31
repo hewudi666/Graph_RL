@@ -11,12 +11,12 @@ class MADDPG:
         self.train_step = 0
         self.device = args.device
         # create the network
-        self.actor_network = Actor(args, agent_id)
-        self.critic_network = Critic(args)
+        self.actor_network = Actor(args, agent_id).to(self.device)
+        self.critic_network = Critic(args).to(self.device)
 
         # build up the target network
-        self.actor_target_network = Actor(args, agent_id)
-        self.critic_target_network = Critic(args)
+        self.actor_target_network = Actor(args, agent_id).to(self.device)
+        self.critic_target_network = Critic(args).to(self.device)
 
         # load the weights into the target networks
         self.actor_target_network.load_state_dict(self.actor_network.state_dict())
@@ -37,8 +37,8 @@ class MADDPG:
         if not os.path.exists(self.model_path):
             os.mkdir(self.model_path)
 
-        self.actor_model_name = '/8_actor_params.pkl'
-        self.critic_model_name = '/8_critic_params.pkl'
+        self.actor_model_name = '/30_actor_params_test.pkl'
+        self.critic_model_name = '/30_critic_params_test.pkl'
         # 加载模型
         if os.path.exists(self.model_path + self.actor_model_name):
             self.actor_network.load_state_dict(torch.load(self.model_path + self.actor_model_name))
@@ -62,11 +62,12 @@ class MADDPG:
         for key in transitions.keys():
             transitions[key] = torch.as_tensor(transitions[key], dtype=torch.float32)
         r = transitions['r_%d' % self.agent_id]  # 训练时只需要自己的reward
+        r = torch.Tensor(r).unsqueeze(1).to(self.device)
         o, u, o_next = [], [], []  # 用来装每个agent经验中的各项
         for agent_id in range(self.args.n_agents):
-            o.append(transitions['o_%d' % agent_id])
-            u.append(transitions['u_%d' % agent_id])
-            o_next.append(transitions['o_next_%d' % agent_id])
+            o.append(transitions['o_%d' % agent_id].to(self.device))
+            u.append(transitions['u_%d' % agent_id].to(self.device))
+            o_next.append(transitions['o_next_%d' % agent_id].to(self.device))
 
         # calculate the target Q value function
         u_next = []
@@ -76,14 +77,14 @@ class MADDPG:
             index = 0
             for agent_id in range(self.args.n_agents):
                 if agent_id == self.agent_id:
-                    u_next.append(self.actor_target_network(o_next[agent_id]))
+                    u_next.append(self.actor_target_network(o_next[agent_id]).detach().to(self.device))
                 else:
                     # 因为传入的other_agents要比总数少一个，可能中间某个agent是当前agent，不能遍历去选择动作
-                    u_next.append(other_agents[index].policy.actor_target_network(o_next[agent_id]))
+                    u_next.append(other_agents[index].policy.actor_target_network(o_next[agent_id]).detach().to(self.device))
                     index += 1
 
             q_next = self.critic_target_network(o_next, u_next).detach()
-            target_q = (r.unsqueeze(1) + self.args.gamma * q_next).detach()
+            target_q = (r + self.args.gamma * q_next).detach()
 
         # the q loss
         q_value = self.critic_network(o, u)
@@ -91,7 +92,7 @@ class MADDPG:
 
         # the actor loss
         # 重新选择联合动作中当前agent的动作，其他agent的动作不变
-        u[self.agent_id] = self.actor_network(o[self.agent_id])
+        u[self.agent_id] = self.actor_network(o[self.agent_id].to(self.device)).detach()
         actor_loss = - self.critic_network(o, u).mean()
         # if self.agent_id == 0:
         #     print('critic_loss is {}, actor_loss is {}'.format(critic_loss, actor_loss))
