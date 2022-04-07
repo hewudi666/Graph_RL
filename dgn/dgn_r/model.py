@@ -34,8 +34,10 @@ class AttModel(nn.Module):
 		q = F.relu(self.fcq(x))
 		k = F.relu(self.fck(x)).permute(0,2,1)
 		# dot product 保留连边有权部分项,    -9e15*(1 - mask) 缩小无权项
-		h = torch.clamp(torch.mul(torch.bmm(q,k), mask), 0 , 9e13) - 9e15*(1 - mask)
-		# h = torch.clamp(torch.mul(torch.bmm(q, k), mask), 0, 1e5) - 1e6 * (1 - mask)
+		# h = torch.clamp(torch.mul(torch.bmm(q,k), mask), 0 , 9e4) - 9e5*(1 - mask)
+		h = torch.mul(torch.bmm(q,k), mask)
+		h = h.where(h != 0, torch.full(h.shape,-9e5).cuda())
+
 		att = F.softmax(h, dim=2) # 权重
 
 		out = torch.bmm(att,v)

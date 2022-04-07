@@ -1,4 +1,5 @@
-from runner_dgn import Runner_DGN
+from runner_dgn_eval import Runner_DGN
+# from runner_dgn2 import Runner_DGN
 from runner_dgn1 import Runner_DGN1
 from runner_maddpg import Runner_maddpg
 from runner_ppo import Runner_PPO
@@ -17,6 +18,6 @@ if __name__ == '__main__':
     # runner = Runner_maddpg(args, env)
     # runner = Runner_PPO(args, env)
     if args.evaluate:
-        runner.evaluate_model()
+        runner.evaluate_model_n(100)
     else:
         runner.run()

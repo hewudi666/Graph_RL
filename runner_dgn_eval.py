@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from dgn.dgn_r.model import DGN
+from dgn.DGN import DGN
 from dgn.dgn_r.buffer import ReplayBuffer
 import os
 import matplotlib.pyplot as plt
@@ -37,7 +37,7 @@ class CosineSimilarity(nn.Module):
 # c = cos(tensor_1, tensor_2)
 # print(c)
 
-class Runner_DGN1:
+class Runner_DGN:
     def __init__(self, args, env):
         self.args = args
         device = torch.device("cuda:0" if torch.cuda.is_available() and args.gpu else "cpu")
@@ -66,7 +66,7 @@ class Runner_DGN1:
         self.save_path = self.args.save_dir + '/' + self.args.scenario_name
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        self.model_name = '/30_agent/30_graph_rl_weight_dynamic1.pth'
+        self.model_name = '/30_agent/30_graph_rl_weight_dynamic2.pth'
         if os.path.exists(self.save_path + self.model_name):
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
             print("successfully load model: {}".format(self.model_name))
@@ -127,8 +127,7 @@ class Runner_DGN1:
                     adj1 = np.expand_dims(adj, 0)
                     adj_ave.append(adj1)
                     adj1 = self.adj_window(adj_ave)
-                    q, a_w = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())  # shape (100, 3)
-                    q = q[0]
+                    q = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())[0]  # shape (100, 3)
                     # 待改
                     for i, agent in enumerate(self.agents):
                         if np.random.rand() < self.epsilon:
@@ -151,8 +150,8 @@ class Runner_DGN1:
 
             if episode > 0 and episode % self.args.evaluate_rate == 0:
                 rew, info = self.evaluate()
-                if episode % (5 * self.args.evaluate_rate) == 0:
-                    self.env.render(mode='traj')
+                # if episode % (5 * self.args.evaluate_rate) == 0:
+                #     self.env.render(mode='traj')
                 reward_total.append(rew)
                 conflict_total.append(info[0])
                 collide_wall_total.append(info[1])
@@ -184,8 +183,8 @@ class Runner_DGN1:
                 target_attention: shape (batch_size, agent_num, agent_num)
                 expected_q: (batch_size, agent_num, action_num)
                 """
-                q_values, attention = self.model(Obs, Mat)  # shape (128, 6, 3)
-                target_q_values, target_attention = self.model_tar(Next_Obs, Next_Mat)  # shape  (128, 6)
+                q_values = self.model(Obs, Mat)  # shape (128, 6, 3)
+                target_q_values = self.model_tar(Next_Obs, Next_Mat)  # shape  (128, 6)
                 target_q_values = target_q_values.max(dim=2)[0]
                 target_q_values = np.array(target_q_values.cpu().data)  # shape  (128, 6)
                 expected_q = np.array(q_values.cpu().data)  # (batch_size, agent_num, action_num)
@@ -199,16 +198,6 @@ class Runner_DGN1:
                         # else:
                         #     expected_q[j][i][sample[1][i]] = sample[2][i]
 
-                # attention = F.softmax(attention, dim=-1)
-                # attention = F.log_softmax(attention, dim=-1)
-                # target_attention = F.softmax(target_attention, dim=-1)
-                # target_attention = target_attention.detach()
-                # loss_kl = F.kl_div(attention, target_attention, reduction='batchmean')
-                # print("loss_kl: ", loss_kl)
-                # loss_js = self.js_div(attention, target_attention)
-                # loss1 = (q_values - torch.Tensor(expected_q).cuda()).pow(2).mean()
-                # loss = loss1 + lamb * loss_kl
-                # print("loss: ", (loss1.data, (lamb * loss_kl).data))
                 loss = (q_values - torch.Tensor(expected_q).cuda()).pow(2).mean()
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -219,8 +208,8 @@ class Runner_DGN1:
                         p_targ.data.mul_(tau)
                         p_targ.data.add_((1 - tau) * p.data)
 
-            if episode % 5 == 0:
-                self.model_tar.load_state_dict(self.model.state_dict())
+            # if episode % 5 == 0:
+            #     self.model_tar.load_state_dict(self.model.state_dict())
             # # save model
             if episode != 0 and episode % 100 == 0:
                 torch.save(self.model.state_dict(), rl_model_dir)
@@ -270,8 +259,7 @@ class Runner_DGN1:
                     adj1 = np.expand_dims(adj, 0)
                     adj_ave.append(adj1)
                     adj1 = self.adj_window(adj_ave)
-                    q, a_w = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())  # shape (100, 5)
-                    q = q[0]
+                    q = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())[0]  # shape (100, 5)
                     for i, agent in enumerate(self.agents):
                         # a = np.random.randint(self.n_action)
                         a = q[i].argmax().item()
@@ -331,8 +319,7 @@ class Runner_DGN1:
                     adj1 = np.expand_dims(adj, 0)
                     adj_ave.append(adj1)
                     adj1 = self.adj_window(adj_ave)
-                    q, a_w = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())  # shape (100, 5)
-                    q = q[0]
+                    q = self.model(torch.Tensor(obs1).cuda(), torch.Tensor(adj1).cuda())[0]  # shape (100, 5)
                     for i, agent in enumerate(self.agents):
                         a = q[i].argmax().item()
                         actions.append(a)
@@ -381,10 +368,10 @@ class Runner_DGN1:
             self.env.exit_boundary_num = 0
             self.env.success_num = 0
 
-        plt.figure()
-        plt.plot(range(1, len(returns)), returns[1:])
-        plt.xlabel('evaluate num')
-        plt.ylabel('average returns')
+        # plt.figure()
+        # plt.plot(range(1, len(returns)), returns[1:])
+        # plt.xlabel('evaluate num')
+        # plt.ylabel('average returns')
         # plt.savefig(self.save_path + '/50_agent/eval_return_2.png', format='png')
 
         # conflict num process
@@ -400,7 +387,7 @@ class Runner_DGN1:
         nmac_total = nmac_total_1
         x = range(len(conflict_total))
         print("有效轮数：", len(x))
-        fig, a = plt.subplots(2, 2)
+        # fig, a = plt.subplots(2, 2)
         # 去除冲突数极大值
         conflict_total[conflict_total.index(max(conflict_total))] = 0
         conflict_total[conflict_total.index(max(conflict_total))] = 0
@@ -427,3 +414,14 @@ class Runner_DGN1:
         # # plt.savefig(self.save_path + '/50_agent/eval_metric2.png', format='png')
         #
         # plt.show()
+        return ave_conflict
+
+    def evaluate_model_n(self, n):
+        conflict_total_n = []
+        for i in range(n):
+            conflict_total_n.append(self.evaluate_model())
+
+        np.save(self.save_path + '/30_agent/30_eval_ave_conflict_dynamic', np.array(conflict_total_n))
+
+
+

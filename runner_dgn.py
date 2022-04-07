@@ -38,7 +38,7 @@ class Runner_DGN:
         self.save_path = self.args.save_dir + '/' + self.args.scenario_name
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        self.output_file = self.save_path + '/15_agent/video/test.gif'
+        # self.output_file = self.save_path + '/15_agent/video/test.gif'
         self.model_name = '/30_agent/30_graph_rl_weight.pth'
         if os.path.exists(self.save_path + self.model_name):
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
@@ -113,7 +113,6 @@ class Runner_DGN:
                 continue
 
             for epoch in range(self.train_epoch):
-                loss_sum = 0
                 batch = self.buffer.getBatch(self.batch_size)
                 for j in range(self.batch_size):
                     sample = batch[j]
@@ -138,7 +137,6 @@ class Runner_DGN:
                             expected_q[j][i][sample[1][i]] = sample[2][i]
 
                 loss = (q_values - torch.Tensor(expected_q).cuda()).pow(2).mean()
-                loss_sum += loss
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
