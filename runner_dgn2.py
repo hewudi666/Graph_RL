@@ -88,7 +88,7 @@ class Runner_DGN:
         :param adj: shape (1, agent_n, agent_n)
         :return: shape (1, agent_n, agent_n)
         """
-        T = 3
+        T = 5
         adj = adj_acc[-1]
         if len(adj_acc) < T:
             return adj

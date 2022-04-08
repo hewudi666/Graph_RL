@@ -18,6 +18,6 @@ if __name__ == '__main__':
     # runner = Runner_maddpg(args, env)
     # runner = Runner_PPO(args, env)
     if args.evaluate:
-        runner.evaluate_model_n(100)
+        runner.evaluate_model_n(10)
     else:
         runner.run()

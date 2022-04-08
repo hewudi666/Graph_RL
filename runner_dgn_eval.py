@@ -66,7 +66,7 @@ class Runner_DGN:
         self.save_path = self.args.save_dir + '/' + self.args.scenario_name
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        self.model_name = '/30_agent/30_graph_rl_weight_dynamic2.pth'
+        self.model_name = '/30_agent/30_graph_rl_weight_dynamic1.pth'
         if os.path.exists(self.save_path + self.model_name):
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
             print("successfully load model: {}".format(self.model_name))
@@ -417,11 +417,12 @@ class Runner_DGN:
         return ave_conflict
 
     def evaluate_model_n(self, n):
+
         conflict_total_n = []
         for i in range(n):
             conflict_total_n.append(self.evaluate_model())
 
-        np.save(self.save_path + '/30_agent/30_eval_ave_conflict_dynamic', np.array(conflict_total_n))
+        np.save(self.save_path + '/30_agent/30_eval_ave_conflict_dynamic1', np.array(conflict_total_n))
 
 
 
