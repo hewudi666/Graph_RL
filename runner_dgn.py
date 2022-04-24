@@ -52,6 +52,7 @@ class Runner_DGN:
         next_matrix = np.ones((self.batch_size, self.agent_num, self.agent_num))
 
         reward_total = []
+        reward_total_t = []
         conflict_total = []
         collide_wall_total = []
         success_total = []
@@ -98,10 +99,11 @@ class Runner_DGN:
                     break
 
             if episode > 0 and episode % self.args.evaluate_rate == 0:
-                rew, info = self.evaluate()
+                rew_t, rew, info = self.evaluate()
                 if episode % (5 * self.args.evaluate_rate) == 0:
                     self.env.render(mode='traj')
                 reward_total.append(rew)
+                reward_total_t.append(rew_t)
                 conflict_total.append(info[0])
                 collide_wall_total.append(info[1])
                 success_total.append(info[2])
@@ -156,6 +158,7 @@ class Runner_DGN:
         plt.ylabel('average returns')
         plt.savefig(self.save_path + '/30_agent/30_train_returns_test_no_cm1.png', format='png')
         np.save(self.save_path + '/30_agent/30_train_returns_test_no_cm1', np.array(reward_total))
+        np.save(self.save_path + '/30_agent/30_train_returns_total_test_no_cm1', np.array(reward_total_t))
 
         fig, a = plt.subplots(2, 2)
         plt.title('GRL_train')
@@ -213,7 +216,7 @@ class Runner_DGN:
         print("平均success num：", self.env.success_num / self.args.evaluate_episodes)
         print("路径平均偏差率：", np.mean(deviation))
 
-        return sum(returns) / self.args.evaluate_episodes, (self.env.collision_num / self.args.evaluate_episodes, self.env.exit_boundary_num / self.args.evaluate_episodes, self.env.success_num / self.args.evaluate_episodes, self.env.nmac_num / self.args.evaluate_episodes)
+        return returns, sum(returns) / self.args.evaluate_episodes, (self.env.collision_num / self.args.evaluate_episodes, self.env.exit_boundary_num / self.args.evaluate_episodes, self.env.success_num / self.args.evaluate_episodes, self.env.nmac_num / self.args.evaluate_episodes)
 
     def evaluate_model(self):
         """

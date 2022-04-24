@@ -11,10 +11,10 @@ class Scenario(BaseScenario):
         # penalty reward setting
         self.collision_level1 = -0.25
         self.collision_level2 = -1.0
-        self.collision_penalty = -5.0
+        self.collision_penalty = -10.0
         self.time_penalty = -0.5
         self.angle_dev = 0.5
-        self.exit_boundary = -5.0
+        self.exit_boundary = -10.0
         self.episode = 0
 
     def make_world(self):

@@ -1,5 +1,5 @@
-from runner_dgn import Runner_DGN
-# from runner_dgn2 import Runner_DGN
+# from runner_dgn import Runner_DGN
+from runner_dgn2 import Runner_DGN
 from runner_dgn1 import Runner_DGN1
 from runner_maddpg import Runner_maddpg
 from common.arguments import get_args

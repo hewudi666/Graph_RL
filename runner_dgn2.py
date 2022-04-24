@@ -66,7 +66,7 @@ class Runner_DGN:
         self.save_path = self.args.save_dir + '/' + self.args.scenario_name
         if not os.path.exists(self.save_path):
             os.makedirs(self.save_path)
-        self.model_name = '/30_agent/30_graph_rl_weight_dynamic1.pth'
+        self.model_name = '/30_agent/30_graph_rl_weight_rewardcurve.pth'
         if os.path.exists(self.save_path + self.model_name):
             self.model.load_state_dict(torch.load(self.save_path + self.model_name))
             print("successfully load model: {}".format(self.model_name))
@@ -98,7 +98,6 @@ class Runner_DGN:
         return adj / T
 
     def run(self):
-        lamb = 5e-7
         tau = 0.98
         reward_total = []
         conflict_total = []
@@ -221,8 +220,8 @@ class Runner_DGN:
         plt.plot(range(1, len(reward_total)), reward_total[1:])
         plt.xlabel('evaluate num')
         plt.ylabel('average returns')
-        plt.savefig(self.save_path + '/30_agent/30_train_returns_dynamic.png', format='png')
-        np.save(self.save_path + '/30_agent/30_train_returns_dynamic', np.array(reward_total))
+        plt.savefig(self.save_path + '/30_agent/30_train_returns_rewardcurve.png', format='png')
+        np.save(self.save_path + '/30_agent/30_train_returns_rewardcurve', np.array(reward_total))
 
         fig, a = plt.subplots(2, 2)
         plt.title('GRL_train')
@@ -235,8 +234,8 @@ class Runner_DGN:
         a[1][0].set_title('success_num')
         a[1][1].plot(x, nmac_total)
         a[1][1].set_title('nmac_num')
-        plt.savefig(self.save_path + '/30_agent/train_metric_dynamic.png', format='png')
-        np.save(self.save_path + '/30_agent/30_conflict_num_dynamic', np.array(conflict_total))
+        plt.savefig(self.save_path + '/30_agent/train_metric_rewardcurve.png', format='png')
+        np.save(self.save_path + '/30_agent/30_conflict_num_rewardcurve', np.array(conflict_total))
         plt.show()
 
     def evaluate(self):

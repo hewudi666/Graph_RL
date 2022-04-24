@@ -25,6 +25,7 @@ class Runner_maddpg:
     def run(self):
         returns = []
         reward_total = []
+        returns_t = []
         conflict_total = []
         collide_wall_total = []
         nmac_total = []
@@ -69,10 +70,11 @@ class Runner_maddpg:
             reward_total.append(sum(reward_episode))
 
             if episode > 0 and episode % self.args.evaluate_rate == 0:
-                rew, info = self.evaluate()
+                rew_t, rew, info = self.evaluate()
                 if episode % (5 * self.args.evaluate_rate) == 0:
                     self.env.render(mode='traj')
                 returns.append(rew)
+                returns_t.append(rew_t)
                 conflict_total.append(info[0])
                 collide_wall_total.append(info[1])
                 success_total.append(info[2])
@@ -88,6 +90,7 @@ class Runner_maddpg:
         plt.ylabel('average returns')
         plt.savefig(self.save_path + '/30_train_return_test.png', format='png')
         np.save(self.save_path + '/30_train_returns_test', np.array(returns))
+        np.save(self.save_path + '/30_train_returns_total_test', np.array(returns_t))
 
         fig, a = plt.subplots(2, 2)
         x = range(len(conflict_total))
@@ -146,7 +149,7 @@ class Runner_maddpg:
         print("平均success num：", self.env.success_num / self.args.evaluate_episodes)
         print("路径平均偏差率：", np.mean(deviation))
 
-        return sum(returns) / self.args.evaluate_episodes, (
+        return returns, sum(returns) / self.args.evaluate_episodes, (
             self.env.collision_num / self.args.evaluate_episodes,
             self.env.exit_boundary_num / self.args.evaluate_episodes,
             self.env.success_num / self.args.evaluate_episodes, self.env.nmac_num / self.args.evaluate_episodes)
