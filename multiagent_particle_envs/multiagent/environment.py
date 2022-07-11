@@ -330,7 +330,6 @@ class MultiAgentEnv_GRL(MultiAgentEnv):
         self.conflict_num_episode = None
         self.nmac_num_episode = None
 
-
     def route_deviation_rate(self):
         deviation_rates = []
         # only for no conflict flight
@@ -1584,7 +1583,7 @@ class MultiAgentEnv_DQN(MultiAgentEnv):
         elif mode == 'video':
             pass
 
-# # environment for all agents in the multiagent world of ppo
+# # environment for all agents in the multiagent world of ppo_cnn
 # class MultiAgentEnv_ppo_cnn(MultiAgentEnv):
 #     def __init__(self, world, reset_callback=None, reward_callback=None,
 #                  observation_callback=None, info_callback=None,
